@@ -1,0 +1,22 @@
+services:
+  # Serves the finished site (web/) on port 8086.
+  web:
+    image: nginx:1.27-alpine
+    container_name: auldwyn-wardrobe
+    restart: unless-stopped
+    ports:
+      - "8086:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # Rebuilds web/data.js and web/3d from the game files. Run on demand:
+  #   docker compose run --rm build
+  build:
+    build: ./tools
+    profiles: ["build"]
+    volumes:
+      - ./tools:/app/tools:ro
+      - ./gamefiles:/app/gamefiles:ro
+      - ./web:/app/web
+    command: sh -c "python tools/build_data.py && python tools/build_3d.py"

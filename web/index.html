@@ -1,0 +1,754 @@
+<meta charset="utf-8">
+<title>Auldwyn Wardrobe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: code bar on top, then a two-pane workbench (armour parts | colour palette) that stacks on phones.
+   Palette and type follow auldwyn.net: near-black ground, muted gold, Noto Serif throughout. */
+:root {
+  --bg: #101010;
+  --panel: #161616;
+  --panel-2: #1d1d1d;
+  --line: rgba(255, 255, 255, .09);
+  --line-gold: rgba(208, 173, 112, .28);
+  --fg: #d8d4cc;
+  --fg-strong: #e8e6e1;
+  --muted: #96928a;
+  --accent: #d0ad70;
+  --accent-deep: #b79358;
+  --accent-tint: rgba(208, 173, 112, .12);
+  --warn: #e0b84a;
+  --danger: #d9534f;
+  --ok: #4fbf72;
+  --display: "Noto Serif", Georgia, serif;
+  --body: "Noto Serif", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+input[type=checkbox] { accent-color: var(--accent); }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font: 15px/1.5 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1440px; margin: 0 auto; display: grid; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; }
+.eyebrow { display: block; color: var(--accent-deep); font: 800 11px/1.3 var(--display); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px; }
+h1 { font: 700 clamp(28px, 4vw, 40px)/1.1 var(--display); color: var(--fg-strong); margin: 0; text-wrap: balance; }
+h1 small { display: block; font: 400 15px/1.4 var(--body); color: var(--muted); margin-top: 8px; }
+h2 { font: 700 20px/1.2 var(--display); color: var(--fg-strong); margin: 0; }
+.body-pick { display: flex; flex-wrap: wrap; gap: 10px; }
+label.sel { display: grid; gap: 5px; font: 700 11px/1.2 var(--display); color: var(--accent-deep); text-transform: uppercase; letter-spacing: .14em; }
+select, input, textarea, button { font: inherit; color: var(--fg); }
+select, input[type=text], textarea {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 2px; padding: 7px 9px;
+}
+select:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible, .sw:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button {
+  background: transparent; border: 1px solid var(--line-gold); border-radius: 0;
+  padding: 7px 14px; cursor: pointer; white-space: nowrap; color: var(--fg);
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary, button.on {
+  background: var(--accent-tint); border-color: var(--accent); color: var(--accent);
+  font: 700 12px/1.2 var(--display); letter-spacing: .13em; text-transform: uppercase;
+}
+.code-row > button { font: 700 12px/1.2 var(--display); letter-spacing: .13em; text-transform: uppercase; padding: 10px 16px; }
+button:disabled { opacity: .4; cursor: default; }
+button:disabled:hover { border-color: var(--line-gold); color: var(--fg); }
+
+.panel { background: var(--panel); border: 1px solid var(--line-gold); border-radius: 14px; padding: 20px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+
+/* Code bar */
+.code { display: grid; gap: 10px; }
+.code textarea { width: 100%; min-height: 64px; resize: vertical; font: 13px/1.5 var(--mono); word-break: break-all; }
+.code-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status { font-size: 14px; color: var(--muted); min-height: 1.4em; }
+.status.err { color: var(--warn); }
+.status.ok { color: var(--ok); }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .95fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.viewer { position: sticky; top: 16px; }
+@media (max-width: 1180px) {
+  .bench { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+  .viewer { grid-column: 1 / -1; position: static; }
+}
+@media (max-width: 860px) { .bench { grid-template-columns: minmax(0, 1fr); } }
+
+/* 3D viewer */
+.stage {
+  position: relative; height: min(72vh, 660px); min-height: 360px; border-radius: 10px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 35%, var(--panel-2), var(--bg) 75%); border: 1px solid var(--line);
+}
+@media (max-width: 1180px) { .stage { height: 480px; } }
+@media (max-width: 860px) { .stage { height: 400px; } }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage-msg { position: absolute; left: 12px; right: 12px; bottom: 12px; text-align: center; color: var(--muted); font-size: 13px; pointer-events: none; }
+.stage-msg.err { color: var(--warn); }
+.viewer-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 12px; }
+.viewer-row .lbl { font: 700 11px/1.2 var(--display); color: var(--accent-deep); text-transform: uppercase; letter-spacing: .14em; }
+.viewer-row .grp { display: flex; align-items: center; gap: 8px; }
+
+/* Parts */
+.parts { display: grid; gap: 4px; }
+.group-label { font: 800 11px/1.3 var(--display); color: var(--accent-deep); text-transform: uppercase; letter-spacing: .16em; margin: 14px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.group-label:first-child { margin-top: 0; }
+.part { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 0; }
+.part-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.part-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font: 700 10px/1.4 var(--display); letter-spacing: .1em; text-transform: uppercase; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); }
+.tag.custom { color: var(--accent); border-color: var(--line-gold); background: var(--accent-tint); }
+.tag.missing { color: var(--fg-strong); background: rgba(217, 83, 79, .25); border-color: var(--danger); }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { padding: 4px 10px; }
+.stepper select { width: 76px; text-align: center; font: 600 14px var(--mono); font-variant-numeric: tabular-nums; }
+.sync { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+
+/* Colours */
+.slot-tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+@media (max-width: 520px) { .slot-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.slot-tabs button.preview { border-style: dashed; }
+.slot-tabs button { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; font: 700 12px/1.2 var(--display); letter-spacing: .06em; }
+.slot-tabs .chip { width: 22px; height: 22px; border-radius: 3px; border: 1px solid #0008; }
+.slot-tabs .num { font: 12px var(--mono); opacity: .8; }
+.grid { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; }
+.sw {
+  aspect-ratio: 1; max-width: 100%; border: 1px solid #000; border-radius: 3px; padding: 0; cursor: pointer;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+.sw.sel { outline: 2px solid var(--accent); outline-offset: 1px; position: relative; z-index: 1; }
+.pick-info { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Saved */
+.saved { display: grid; gap: 10px; }
+.saved-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.saved-item { display: flex; align-items: stretch; }
+.saved-item button:first-child { border-radius: 4px 0 0 4px; }
+.saved-item button:last-child { border-radius: 0 4px 4px 0; border-left: 0; padding: 6px 8px; color: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { button, .sw { transition: border-color .12s, background-color .12s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div><span class="eyebrow">Neverwinter Nights: Enhanced Edition</span><h1>Auldwyn Wardrobe<small>Plan an outfit here, then import the code in-game.</small></h1></div>
+    <div class="body-pick">
+      <label class="sel" for="race">Race<select id="race"></select></label>
+      <label class="sel" for="gender">Gender<select id="gender"><option value="f">Female</option><option value="m">Male</option></select></label>
+      <label class="sel" for="pheno">Body<select id="pheno"></select></label>
+    </div>
+  </header>
+
+  <section class="panel code" aria-labelledby="code-h">
+    <div class="panel-head">
+      <h2 id="code-h">Share code</h2>
+      <span class="note" style="margin:0">Wardrobe → Share → paste into the box → Import → Apply</span>
+    </div>
+    <textarea id="code" spellcheck="false" aria-label="Share code"></textarea>
+    <div class="code-row">
+      <button class="primary" id="copy">Copy code</button>
+      <button id="load">Load pasted code</button>
+      <button id="revert" disabled>Undo last change</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </section>
+
+  <div class="bench">
+    <section class="panel viewer" aria-labelledby="view-h">
+      <div class="panel-head">
+        <h2 id="view-h">Preview</h2>
+        <span class="note" style="margin:0">Drag to turn · scroll or pinch to zoom</span>
+      </div>
+      <div class="stage" id="stage"><div class="stage-msg" id="stage-msg">Loading 3D preview…</div></div>
+      <div class="viewer-row">
+        <div class="grp"><span class="lbl">Head</span>
+          <div class="stepper"><button id="head-prev" aria-label="Previous head">&lt;</button><select id="head" aria-label="Head"></select><button id="head-next" aria-label="Next head">&gt;</button></div>
+        </div>
+        <button id="reset-view">Reset view</button>
+      </div>
+      <p class="note">Head, skin and hair are only for the preview. The share code carries armour parts and colours.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="parts-h">
+      <div class="panel-head">
+        <h2 id="parts-h">Armour parts</h2>
+        <label class="sync"><input type="checkbox" id="sync" checked> L+R sync</label>
+      </div>
+      <div class="parts" id="parts"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="col-h">
+      <div class="panel-head"><h2 id="col-h">Colours</h2></div>
+      <div class="slot-tabs" id="slot-tabs" role="tablist"></div>
+      <div class="grid" id="grid" role="radiogroup" aria-label="Palette"></div>
+      <div class="pick-info"><span id="hover-info">Hover a swatch to see its number</span><span id="sel-info"></span></div>
+    </section>
+  </div>
+
+  <section class="panel saved" aria-labelledby="saved-h">
+    <div class="panel-head">
+      <h2 id="saved-h">Saved outfits</h2>
+      <div class="code-row">
+        <input type="text" id="save-name" placeholder="name…" aria-label="Outfit name">
+        <button id="save">Save</button>
+      </div>
+    </div>
+    <div class="saved-list" id="saved-list"></div>
+  </section>
+
+  <footer>Saved outfits stay in this browser only. Parts marked <span class="tag custom">Auldwyn</span> come from the server's custom content.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="data.js"></script>
+<script>
+(() => {
+  const D = window.WARDROBE_DATA;
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  const COLOR_SLOTS = [
+    { id: 'Lea 1', pal: 'leath' }, { id: 'Lea 2', pal: 'leath' },
+    { id: 'Clo 1', pal: 'cloth' }, { id: 'Clo 2', pal: 'cloth' },
+    { id: 'Met 1', pal: 'metal1' }, { id: 'Met 2', pal: 'metal2' },
+    { id: 'Skin', pal: 'skin', pref: 'skin' }, { id: 'Hair', pal: 'hair', pref: 'hair' },
+  ];
+  // Preview-only choices (not part of the share code).
+  const prefs = Object.assign({ skin: 2, hair: 4, heads: {} }, store.get('aw.prefs', {}));
+  const savePrefs = () => store.set('aw.prefs', prefs);
+  const getColor = (i) => (COLOR_SLOTS[i].pref ? prefs[COLOR_SLOTS[i].pref] : state.c[i]);
+  function setColor(i, v) {
+    const pref = COLOR_SLOTS[i].pref;
+    if (pref) { prefs[pref] = v; savePrefs(); renderColours(); viewer.update(); return; }
+    commit((s) => { s.c[i] = v; });
+  }
+  // Share-code index of each part, grouped the way the body reads top to bottom.
+  const GROUPS = [
+    // The torso you see is "t". p[7] is kept as imported and never shown.
+    ['Torso', [{ key: 't', name: 'Torso', slot: 'chest' }, 9, 6, 8, 18]],
+    ['Arms', [15, 14, 13, 12, 11, 10, 17, 16]],
+    ['Legs', [4, 5, 3, 2, 1, 0]],
+  ];
+  const MIRROR = { 0: 1, 1: 0, 2: 3, 3: 2, 4: 5, 5: 4, 10: 11, 11: 10, 12: 13, 13: 12, 14: 15, 15: 14, 16: 17, 17: 16 };
+  const customSets = Object.fromEntries(Object.entries(D.custom).map(([k, v]) => [k, new Set(v)]));
+
+  // Starting outfit: the code exported from Borrwick in-game.
+  const SAMPLE = '{"c":"15,15,79,147,7,147","p":"4,4,8,8,4,4,154,1,63,153,16,16,5,5,7,7,6,6,0","t":167,"v":1}';
+
+  let state = null;
+  let history = [];
+  let activeColor = Math.min(7, Math.max(0, Number(store.get('aw.colorTab', 0)) || 0));
+
+  // ---------- code format ----------
+  function parseCode(text) {
+    let o;
+    try { o = JSON.parse(text.trim()); } catch { throw new Error('That isn\'t a wardrobe code. Copy it from the Share tab and paste the whole thing, braces included.'); }
+    const nums = (s, n, max) => {
+      const a = String(s ?? '').split(',').map((x) => Number(x.trim()));
+      if (a.length !== n || a.some((x) => !Number.isInteger(x) || x < 0 || x > max)) throw new Error(`The code's ${n === 6 ? 'colour' : 'part'} list is damaged. Export it again in-game.`);
+      return a;
+    };
+    const t = Number(o.t);
+    if (!Number.isInteger(t) || t < 0 || t > 255) throw new Error('The code\'s torso number is missing or damaged.');
+    return { c: nums(o.c, 6, 175), p: nums(o.p, 19, 255), t, v: o.v ?? 1 };
+  }
+  function makeCode(s) {
+    return JSON.stringify({ c: s.c.join(','), p: s.p.join(','), t: s.t, v: s.v });
+  }
+
+  // ---------- helpers ----------
+  const prefix = () => $('gender').value + $('race').value + $('pheno').value;
+  const slotOf = (i) => D.slots[i].id;
+  const optionsFor = (slot) => D.models[prefix()]?.[slot] ?? [0];
+  function swatchCss(pal, idx) {
+    const [a, b, c, d] = D.palettes[pal][idx];
+    return `radial-gradient(circle at 50% 45%, #${a} 0%, #${b} 35%, #${c} 70%, #${d} 100%)`;
+  }
+  function status(msg, kind = '') { const el = $('status'); el.textContent = msg; el.className = 'status ' + kind; }
+  function commit(mutator) {
+    history.push(JSON.stringify(state));
+    if (history.length > 50) history.shift();
+    mutator(state);
+    render();
+  }
+
+  // ---------- 3D viewer ----------
+  const viewer = (() => {
+    const T = window.THREE;
+    const msg = (text, err) => { const m = $('stage-msg'); m.textContent = text || ''; m.className = 'stage-msg' + (err ? ' err' : ''); };
+    if (!T || !T.OrbitControls) { msg('The 3D preview could not load. The editor still works.', true); return { update() {} }; }
+    if (!('DecompressionStream' in window)) { msg('This browser is too old for the 3D preview. The editor still works.', true); return { update() {} }; }
+
+    let index = null, renderer, scene, camera, controls, root;
+    const bodies = {}, packs = {}, textures = {}, meshCache = {}, skeletons = {};
+    const ARM_OUT = 0.2; // radians the arms swing out from the rest pose so a coat doesn't hide them
+    const shown = new Set();
+    let wanted = 0;
+
+    // Packs are .bin files; hosts that only serve text get base64 .txt copies (index.json says which).
+    async function fetchBin(url) {
+      const ext = index?.ext || '.bin';
+      if (ext !== '.bin') url = url.replace(/\.bin$/, ext);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`${url}: ${r.status}`);
+      let buf;
+      if (ext === '.txt') {
+        const bin = atob((await r.text()).trim());
+        buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      } else buf = new Uint8Array(await r.arrayBuffer());
+      if (buf[0] === 0x1f && buf[1] === 0x8b) {
+        const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+        buf = new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      return buf;
+    }
+    const once = (cache, key, make) => cache[key] || (cache[key] = make().catch((e) => { delete cache[key]; throw e; }));
+
+    // Palette rows for the 10 colour layers a texture can use:
+    // skin, hair, metal 1, metal 2, cloth 1, cloth 2, leather 1, leather 2, tattoo 1, tattoo 2.
+    const shared = {
+      pal: { value: null },
+      rows: { value: new Array(10).fill(0) },
+      posScale: { value: 8192 },
+      uvScale: { value: 4096 },
+    };
+    const VERT = `
+      uniform float posScale; uniform float uvScale;
+      varying vec2 vUv; varying vec3 vN;
+      void main() {
+        vUv = uv / uvScale;
+        vN = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position / posScale, 1.0);
+      }`;
+    const FRAG = `
+      uniform sampler2D plt; uniform sampler2D pal; uniform float rows[10]; uniform float hasTex;
+      varying vec2 vUv; varying vec3 vN;
+      void main() {
+        vec3 base = vec3(0.55);
+        if (hasTex > 0.5) {
+          vec2 s = texture2D(plt, vUv).rg;
+          float shade = floor(s.r * 255.0 + 0.5);
+          int layer = int(clamp(floor(s.g * 255.0 + 0.5), 0.0, 9.0));
+          float row = 0.0;
+          for (int i = 0; i < 10; i++) { if (i == layer) row = rows[i]; }
+          base = texture2D(pal, vec2((shade + 0.5) / 256.0, (float(layer) * 176.0 + row + 0.5) / 1760.0)).rgb;
+        }
+        vec3 n = normalize(vN);
+        if (!gl_FrontFacing) n = -n;
+        float key = max(dot(n, normalize(vec3(0.45, 0.55, 0.75))), 0.0);
+        float fill = max(dot(n, normalize(vec3(-0.7, 0.1, 0.35))), 0.0);
+        float rim = max(dot(n, normalize(vec3(0.0, 0.3, -1.0))), 0.0);
+        gl_FragColor = vec4(base * (0.42 + 0.68 * key + 0.25 * fill + 0.2 * rim), 1.0);
+      }`;
+
+    function init() {
+      const host = $('stage');
+      renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      host.prepend(renderer.domElement);
+      scene = new T.Scene();
+      camera = new T.PerspectiveCamera(30, 1, 0.05, 50);
+      controls = new T.OrbitControls(camera, renderer.domElement);
+      controls.enablePan = false;
+      controls.minDistance = 0.6;
+      controls.maxDistance = 7;
+      controls.addEventListener('change', draw);
+      root = new T.Group();
+      root.rotation.x = -Math.PI / 2; // game models are z-up
+      scene.add(root);
+      new ResizeObserver(resize).observe(host);
+      resetView();
+      resize();
+    }
+    function resetView() {
+      camera.position.set(0, 1.15, -4.2); // characters face -z after the z-up turn
+      controls.target.set(0, 0.95, 0);
+      controls.update();
+    }
+    function resize() {
+      const host = $('stage');
+      const w = host.clientWidth, h = host.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      draw();
+    }
+    let drawQueued = false;
+    function draw() {
+      if (drawQueued || !renderer) return;
+      drawQueued = true;
+      requestAnimationFrame(() => { drawQueued = false; renderer.render(scene, camera); });
+    }
+
+    async function texture(id) {
+      if (id < 0) return null;
+      return once(textures, id, async () => {
+        const [pack, off, w, h] = index.textures[id];
+        const buf = await once(packs, pack, () => fetchBin(`3d/tex_${pack}.bin`));
+        const n = w * h, out = new Uint8Array(n * 2);
+        let v = 0;
+        for (let i = 0; i < n; i++) {
+          v = (v + buf[off + i]) & 255;
+          out[i * 2] = v;
+          out[i * 2 + 1] = buf[off + n + i];
+        }
+        const t = new T.DataTexture(out, w, h, T.RGFormat, T.UnsignedByteType);
+        t.magFilter = t.minFilter = T.NearestFilter;
+        t.wrapS = t.wrapT = T.RepeatWrapping;
+        t.unpackAlignment = 1;
+        t.needsUpdate = true;
+        return t;
+      });
+    }
+
+    function partMesh(pre, slot, num) {
+      return once(meshCache, `${pre}|${slot}|${num}`, async () => {
+        const list = index.bodies[pre]?.[slot]?.[num];
+        if (!list) return null;
+        const buf = await once(bodies, pre, () => fetchBin(`3d/body_${pre}.bin`));
+        const out = [];
+        for (const [start, vc, ic, tid, bone] of list) {
+          const g = new T.BufferGeometry();
+          const uvAt = start + vc * 6, nAt = uvAt + vc * 4;
+          let iAt = nAt + vc * 3;
+          iAt += iAt % 2;
+          g.setAttribute('position', new T.BufferAttribute(new Int16Array(buf.buffer, buf.byteOffset + start, vc * 3), 3));
+          g.setAttribute('uv', new T.BufferAttribute(new Int16Array(buf.buffer, buf.byteOffset + uvAt, vc * 2), 2));
+          g.setAttribute('normal', new T.BufferAttribute(new Int8Array(buf.buffer, buf.byteOffset + nAt, vc * 3), 3, true));
+          g.setIndex(new T.BufferAttribute(new Uint16Array(buf.buffer, buf.byteOffset + iAt, ic), 1));
+          const tex = await texture(tid);
+          const mat = new T.ShaderMaterial({
+            vertexShader: VERT, fragmentShader: FRAG, side: T.DoubleSide,
+            uniforms: { ...shared, plt: { value: tex }, hasTex: { value: tex ? 1 : 0 } },
+          });
+          const mesh = new T.Mesh(g, mat);
+          mesh.frustumCulled = false;
+          out.push({ bone, mesh });
+        }
+        return out;
+      });
+    }
+
+    // One set of bones per body. Parts hang from them; bone rotation poses the figure.
+    function skeleton(pre) {
+      if (skeletons[pre]) return skeletons[pre];
+      const def = index.skeletons[pre] || {};
+      const bones = { '': new T.Group() };
+      const world = (n) => def[n] ? def[n].slice(1) : [0, 0, 0];
+      const make = (name) => {
+        if (bones[name]) return bones[name];
+        const b = new T.Group();
+        bones[name] = b;
+        const parent = def[name]?.[0] || '';
+        const pw = world(parent), w = world(name);
+        b.position.set(w[0] - pw[0], w[1] - pw[1], w[2] - pw[2]);
+        (parent ? make(parent) : bones['']).add(b);
+        return b;
+      };
+      Object.keys(def).forEach(make);
+      return (skeletons[pre] = bones);
+    }
+    function pose(bones, armsOut) {
+      const a = armsOut ? ARM_OUT : 0;
+      if (bones.lbicep_g) bones.lbicep_g.rotation.y = a;
+      if (bones.rbicep_g) bones.rbicep_g.rotation.y = -a;
+    }
+
+    function wantedParts() {
+      const pre = prefix();
+      const hide = new Set((state.p[18] && index.robeHide[state.p[18]]) || []); // robe 0 = no robe
+      const out = [];
+      D.slots.forEach((s, i) => {
+        if (hide.has(s.id)) return;
+        const num = s.id === 'chest' ? state.t : state.p[i];
+        if (num) out.push([pre, s.id, num]);
+      });
+      if (!hide.has('head')) out.push([pre, 'head', headFor(pre)]);
+      return out;
+    }
+    function headFor(pre) {
+      const list = index.heads[pre] || [];
+      const h = prefs.heads[pre];
+      return list.includes(h) ? h : list[0];
+    }
+    function renderHeadPicker() {
+      if (!index) return;
+      const pre = prefix(), list = index.heads[pre] || [], sel = $('head');
+      sel.replaceChildren(...list.map((n) => new Option(String(n), String(n))));
+      sel.value = String(headFor(pre));
+    }
+    function stepHead(d) {
+      const pre = prefix(), list = index.heads[pre] || [];
+      if (!list.length) return;
+      const i = list.indexOf(headFor(pre));
+      prefs.heads[pre] = list[(i + d + list.length) % list.length];
+      savePrefs(); update();
+    }
+    $('head-prev').onclick = () => stepHead(-1);
+    $('head-next').onclick = () => stepHead(1);
+    $('head').onchange = () => { prefs.heads[prefix()] = Number($('head').value); savePrefs(); update(); };
+    $('reset-view').onclick = () => { if (controls) resetView(); };
+
+    async function update() {
+      if (!index) return;
+      renderHeadPicker();
+      const c = state.c;
+      shared.rows.value = [prefs.skin, prefs.hair, c[4], c[5], c[2], c[3], c[0], c[1], 0, 0];
+      const ticket = ++wanted;
+      const parts = wantedParts();
+      const slow = setTimeout(() => msg('Loading parts…'), 250);
+      try {
+        const lists = await Promise.all(parts.map(([p, s, n]) => partMesh(p, s, n)));
+        if (ticket !== wanted) return; // a newer change is already on its way
+        const bones = skeleton(prefix());
+        root.children.slice().forEach((c) => { if (c !== bones['']) root.remove(c); });
+        if (bones[''].parent !== root) root.add(bones['']);
+        pose(bones, !state.p[18]);
+        const next = new Set();
+        for (const list of lists) for (const { bone, mesh } of list || []) {
+          next.add(mesh);
+          const host = bones[bone] || bones[''];
+          if (mesh.parent !== host) host.add(mesh);
+        }
+        for (const m of shown) if (!next.has(m)) { m.removeFromParent(); shown.delete(m); }
+        next.forEach((m) => shown.add(m));
+        msg('');
+      } catch (e) {
+        if (ticket === wanted) msg('Some parts could not be loaded. Check your connection and try again.', true);
+        console.error(e);
+      } finally {
+        clearTimeout(slow);
+        draw();
+      }
+    }
+
+    (async () => {
+      try {
+        index = await (await fetch('3d/index.json')).json();
+        shared.posScale.value = index.posScale;
+        shared.uvScale.value = index.uvScale;
+        const pal = await fetchBin('3d/palettes.bin');
+        const pt = new T.DataTexture(pal, 256, 1760, T.RGBAFormat, T.UnsignedByteType);
+        pt.magFilter = pt.minFilter = T.NearestFilter;
+        pt.needsUpdate = true;
+        shared.pal.value = pt;
+        init();
+        await update();
+      } catch (e) {
+        console.error(e);
+        msg('The 3D preview could not load. The editor still works.', true);
+      }
+    })();
+    return { update };
+  })();
+
+  // ---------- body selectors ----------
+  D.races.forEach((r) => $('race').add(new Option(r.name, r.id)));
+  D.phenotypes.forEach((p) => $('pheno').add(new Option(p.name, p.id)));
+  const body = store.get('aw.body', { race: 'e', gender: 'f', pheno: '0' });
+  $('race').value = body.race; $('gender').value = body.gender; $('pheno').value = body.pheno;
+  ['race', 'gender', 'pheno'].forEach((id) => $(id).addEventListener('change', () => {
+    store.set('aw.body', { race: $('race').value, gender: $('gender').value, pheno: $('pheno').value });
+    renderParts();
+    viewer.update();
+  }));
+
+  // ---------- parts ----------
+  function partRow(def) {
+    const isTorsoCostume = typeof def === 'object';
+    const index = isTorsoCostume ? null : def;
+    const slot = isTorsoCostume ? def.slot : slotOf(index);
+    const name = isTorsoCostume ? def.name : D.slots[index].name;
+    const get = () => (isTorsoCostume ? state.t : state.p[index]);
+    const set = (v) => commit((s) => {
+      if (isTorsoCostume) { s.t = v; return; }
+      s.p[index] = v;
+      if ($('sync').checked && index in MIRROR) {
+        const other = MIRROR[index];
+        if (optionsFor(slotOf(other)).includes(v)) s.p[other] = v;
+        else status(`${D.slots[other].name} has no part ${v}, so it was left as it was.`, 'err');
+      }
+    });
+
+    const row = document.createElement('div');
+    row.className = 'part';
+    const opts = optionsFor(slot);
+    const val = get();
+    const has = opts.includes(val);
+    const nameEl = document.createElement('div');
+    nameEl.className = 'part-name';
+    nameEl.innerHTML = `<span>${name}</span>`;
+    if (!has) nameEl.insertAdjacentHTML('beforeend', '<span class="tag missing" title="No model for this race and body">no model</span>');
+    else if (val && customSets[slot]?.has(val)) nameEl.insertAdjacentHTML('beforeend', '<span class="tag custom">Auldwyn</span>');
+
+    const step = document.createElement('div');
+    step.className = 'stepper';
+    const prev = document.createElement('button');
+    prev.textContent = '<'; prev.setAttribute('aria-label', `Previous ${name}`);
+    const next = document.createElement('button');
+    next.textContent = '>'; next.setAttribute('aria-label', `Next ${name}`);
+    const sel = document.createElement('select');
+    sel.id = 'part-' + (isTorsoCostume ? 't' : index);
+    sel.setAttribute('aria-label', name);
+    const list = has ? opts : [...opts, val].sort((a, b) => a - b);
+    list.forEach((n) => sel.add(new Option(String(n), String(n))));
+    sel.value = String(val);
+    const move = (d) => {
+      const i = opts.indexOf(get());
+      const at = i < 0 ? opts.findIndex((n) => n > get()) - (d > 0 ? 1 : 0) : i;
+      set(opts[(at + d + opts.length) % opts.length]);
+    };
+    prev.onclick = () => move(-1);
+    next.onclick = () => move(1);
+    sel.onchange = () => set(Number(sel.value));
+    step.append(prev, sel, next);
+    row.append(nameEl, step);
+    return row;
+  }
+  function renderParts() {
+    const host = $('parts');
+    const focusId = document.activeElement?.id;
+    host.replaceChildren();
+    GROUPS.forEach(([label, defs]) => {
+      const h = document.createElement('div');
+      h.className = 'group-label'; h.textContent = label;
+      host.append(h);
+      defs.forEach((d) => host.append(partRow(d)));
+    });
+    const n = document.createElement('p');
+    n.className = 'note';
+    n.textContent = 'A robe of 0 means no robe.';
+    host.append(n);
+    if (focusId) $(focusId)?.focus();
+  }
+
+  // ---------- colours ----------
+  function renderTabs() {
+    const host = $('slot-tabs');
+    host.replaceChildren();
+    COLOR_SLOTS.forEach((cs, i) => {
+      const b = document.createElement('button');
+      b.role = 'tab';
+      b.id = 'ctab-' + i;
+      b.setAttribute('aria-selected', String(i === activeColor));
+      b.className = (i === activeColor ? 'on' : '') + (cs.pref ? ' preview' : '');
+      if (cs.pref) b.title = 'Preview only';
+      b.innerHTML = `<span>${cs.id}</span><span class="chip" style="background:${swatchCss(cs.pal, getColor(i))}"></span><span class="num">${getColor(i)}</span>`;
+      b.onclick = () => { activeColor = i; store.set('aw.colorTab', i); renderColours(); };
+      host.append(b);
+    });
+  }
+  function renderGrid() {
+    const host = $('grid');
+    const cs = COLOR_SLOTS[activeColor];
+    const cur = getColor(activeColor);
+    if (host.dataset.pal !== cs.pal) {
+      host.replaceChildren();
+      for (let i = 0; i < 176; i++) {
+        const b = document.createElement('button');
+        b.className = 'sw';
+        b.role = 'radio';
+        b.dataset.i = i;
+        b.style.background = swatchCss(cs.pal, i);
+        b.setAttribute('aria-label', `Colour ${i}`);
+        b.onmouseenter = b.onfocus = () => { $('hover-info').textContent = `Colour ${i}`; };
+        b.onclick = () => setColor(activeColor, i);
+        host.append(b);
+      }
+      host.dataset.pal = cs.pal;
+    }
+    host.querySelectorAll('.sw').forEach((b) => {
+      const on = Number(b.dataset.i) === cur;
+      b.classList.toggle('sel', on);
+      b.setAttribute('aria-checked', String(on));
+    });
+    $('sel-info').textContent = `${cs.id}: colour ${cur}${cs.pref ? ' (preview only)' : ''}`;
+  }
+  function renderColours() { renderTabs(); renderGrid(); }
+
+  // ---------- code box ----------
+  function render() {
+    renderParts();
+    renderColours();
+    $('code').value = makeCode(state);
+    $('revert').disabled = history.length === 0;
+    store.set('aw.current', makeCode(state));
+    viewer.update();
+  }
+  function loadCode(text, msg) {
+    try {
+      const next = parseCode(text);
+      if (state) history.push(JSON.stringify(state));
+      state = next;
+      render();
+      status(msg, 'ok');
+    } catch (e) { status(e.message, 'err'); }
+  }
+  $('load').onclick = () => loadCode($('code').value, 'Code loaded.');
+  $('code').addEventListener('paste', () => setTimeout(() => loadCode($('code').value, 'Pasted code loaded.'), 0));
+  $('copy').onclick = async () => {
+    const text = makeCode(state);
+    $('code').value = text;
+    try { await navigator.clipboard.writeText(text); status('Copied. Paste it into the Share tab in-game, then Import and Apply.', 'ok'); }
+    catch { $('code').select(); status('Your browser blocked copying. The code is selected, so press Ctrl+C.', ''); }
+  };
+  $('revert').onclick = () => {
+    if (!history.length) return;
+    state = JSON.parse(history.pop());
+    render();
+    status('Undone.', '');
+  };
+
+  // ---------- saved outfits ----------
+  function renderSaved() {
+    const list = store.get('aw.saved', []);
+    const host = $('saved-list');
+    host.replaceChildren();
+    if (!list.length) { host.innerHTML = '<span class="empty">Nothing saved yet. Name the current outfit and press Save.</span>'; return; }
+    list.forEach((o, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'saved-item';
+      const b = document.createElement('button');
+      b.textContent = o.name;
+      b.onclick = () => loadCode(o.code, `Loaded “${o.name}”.`);
+      const del = document.createElement('button');
+      del.textContent = '×';
+      del.setAttribute('aria-label', `Delete ${o.name}`);
+      del.onclick = () => { const l = store.get('aw.saved', []); l.splice(i, 1); store.set('aw.saved', l); renderSaved(); };
+      wrap.append(b, del);
+      host.append(wrap);
+    });
+  }
+  $('save').onclick = () => {
+    const name = $('save-name').value.trim() || `Outfit ${store.get('aw.saved', []).length + 1}`;
+    const list = store.get('aw.saved', []).filter((o) => o.name !== name);
+    list.push({ name, code: makeCode(state) });
+    store.set('aw.saved', list);
+    $('save-name').value = '';
+    renderSaved();
+    status(`Saved “${name}”.`, 'ok');
+  };
+
+  // ---------- start ----------
+  const last = store.get('aw.current', null);
+  try { state = parseCode(last || SAMPLE); } catch { state = parseCode(SAMPLE); }
+  render();
+  renderSaved();
+  status(last ? 'Picked up where you left off.' : 'Showing an example outfit. Paste your own code to start from it.', '');
+})();
+</script>

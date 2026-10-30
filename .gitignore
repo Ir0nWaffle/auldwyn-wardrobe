@@ -1,0 +1,8 @@
+# Game files copied from the PC (base game + NWSync). Large and not ours to share.
+gamefiles/
+
+# Generated 3D packs (~26 MB). Rebuild with: docker compose run --rm build
+web/3d/
+
+__pycache__/
+*.pyc
