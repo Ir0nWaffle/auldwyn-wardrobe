@@ -59,5 +59,5 @@ Once live, the site is at https://ir0nwaffle.github.io/auldwyn-wardrobe/.
 | `tools/mdl.py` | Reads binary and ASCII NWN models |
 | `tools/build_data.py` | Writes `web/data.js` |
 | `tools/build_3d.py` | Writes `web/3d/` |
-| `tools/excluded_parts.json` | Parts the tool never offers or ships (torsos 160, 161, 162, 166 and pelvis 150, 152, matching what Auldwyn blocks in-game). Rebuild after editing |
+| `tools/excluded_parts.json` | Parts the tool never offers or ships (torsos 160, 161, 162, 166 and pelvis 150, 152, matching what Auldwyn blocks in-game, plus belt 166, a tail). Rebuild after editing |
 | `tools/artifact_copy.py` | Base64 copies of the packs for hosts that only serve text files |

@@ -1,5 +1,5 @@
 {
-  "_why": "Parts the tool never offers or ships, though they exist in Auldwyn's files. Matches the list Auldwyn's devs block in-game. Keys are model slot names (chest = torso).",
+  "_why": "Parts the tool never offers or ships, though they exist in Auldwyn's files: what Auldwyn's devs block in-game, plus belt 166 (a tail) at the owner's request. Keys are model slot names (chest = torso).",
   "chest": [
     160,
     161,
@@ -9,5 +9,8 @@
   "pelvis": [
     150,
     152
+  ],
+  "belt": [
+    166
   ]
 }
