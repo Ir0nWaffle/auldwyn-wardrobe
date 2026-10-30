@@ -29,6 +29,18 @@ palettes, skeletons). The web container picks up the new files straight away.
 If Auldwyn's NWSync manifest changes, update `AULDWYN_MANIFEST` in `tools/nwnres.py`. The manifest whose
 description is "Auldwyn NWSync" in `nwsyncmeta.sqlite3` is the right one.
 
+## Public site (GitHub Pages)
+
+The built site lives on the `gh-pages` branch, which holds only the contents of `web/`, replaced on
+each publish. The source stays on `main`.
+
+```sh
+./tools/publish_pages.sh   # push the current web/ to gh-pages (after a rebuild, too)
+./tools/go_live.sh         # one time: make the repo public and turn on Pages (asks first)
+```
+
+Once live, the site is at https://ir0nwaffle.github.io/auldwyn-wardrobe/.
+
 ## Share code
 
 ```json
