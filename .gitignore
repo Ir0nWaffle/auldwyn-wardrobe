@@ -6,3 +6,6 @@ web/3d/
 
 __pycache__/
 *.pyc
+
+# Review images, not part of the site
+review/

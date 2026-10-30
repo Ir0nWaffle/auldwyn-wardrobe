@@ -671,7 +671,8 @@ footer { color: var(--muted); font-size: 13px; }
     const nameEl = document.createElement('div');
     nameEl.className = 'part-name';
     nameEl.innerHTML = `<span>${name}</span>`;
-    if (!has) nameEl.insertAdjacentHTML('beforeend', '<span class="tag missing" title="No model for this race and body">no model</span>');
+    if (D.excluded?.[slot]?.includes(val)) nameEl.insertAdjacentHTML('beforeend', '<span class="tag missing" title="This part is not available in the wardrobe tool">unavailable</span>');
+    else if (!has) nameEl.insertAdjacentHTML('beforeend', '<span class="tag missing" title="No model for this race and body">no model</span>');
     else if (val && customSets[slot]?.has(val)) nameEl.insertAdjacentHTML('beforeend', '<span class="tag custom">Auldwyn</span>');
 
     const step = document.createElement('div');

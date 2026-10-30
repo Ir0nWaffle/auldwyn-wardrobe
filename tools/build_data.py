@@ -49,7 +49,14 @@ def read_palette(data):
     return rows
 
 
+def load_excluded():
+    """Parts the tool never offers or ships (see excluded_parts.json)."""
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'excluded_parts.json')) as f:
+        return {k: set(v) for k, v in json.load(f).items() if not k.startswith('_')}
+
+
 def main():
+    excluded = load_excluded()
     res = nwnres.Resources()
     pat = re.compile(r'^p([mf])([a-z])(\d)_([a-z]+?)(\d{3})$')
     parts = defaultdict(lambda: defaultdict(set))
@@ -73,14 +80,15 @@ def main():
         for r, _ in RACES:
             for ph, _ in PHENOS:
                 key = g + r + ph
-                models[key] = {s: sorted(parts[key][s] | {0}) for s, _ in SLOTS}
+                models[key] = {s: sorted((parts[key][s] | {0}) - excluded.get(s, set())) for s, _ in SLOTS}
 
     data = {
         'slots': [{'id': s, 'name': n} for s, n in SLOTS],
         'races': [{'id': r, 'name': n} for r, n in RACES],
         'phenotypes': [{'id': p, 'name': n} for p, n in PHENOS],
         'models': models,
-        'custom': {s: sorted(v) for s, v in sorted(custom.items())},
+        'custom': {s: sorted(v - excluded.get(s, set())) for s, v in sorted(custom.items())},
+        'excluded': {s: sorted(v) for s, v in sorted(excluded.items())},
         'palettes': {k: read_palette(res.get(p, 'tga')) for k, p in PALETTES},
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
