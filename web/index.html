@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Auldwyn Wardrobe</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -141,6 +142,47 @@ button:disabled:hover { border-color: var(--line-gold); color: var(--fg); }
 .saved-item button:last-child { border-radius: 0 4px 4px 0; border-left: 0; padding: 6px 8px; color: var(--muted); }
 .empty { color: var(--muted); font-size: 14px; }
 footer { color: var(--muted); font-size: 13px; }
+/* Phones: the preview stays pinned at the top with a tab bar under it; one panel shows at a time,
+   so every change is visible without scrolling back up. */
+.mtabs, .look, .stage-btn { display: none; }
+@media (max-width: 760px) {
+  body { padding-block: 10px 24px; }
+  .wrap { gap: 12px; }
+  header { order: -2; }
+  h1 { font-size: 24px; }
+  h1 small { display: none; }
+  .eyebrow { margin-bottom: 4px; }
+  .bench { display: contents; }
+  .viewer { order: -1; position: sticky; top: 0; z-index: 5; padding: 8px; border-radius: 0 0 12px 12px; box-shadow: 0 10px 18px -8px #000c; }
+  .viewer > .panel-head { display: none; }
+  .stage { height: 40svh; min-height: 220px; }
+  .stage.big { height: 68svh; }
+  .stage-btn { display: block; position: absolute; top: 8px; z-index: 2; background: #101010cc; padding: 7px 11px;
+    font: 700 11px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+  #stage-copy { left: 8px; color: var(--accent); border-color: var(--accent); }
+  #stage-size { right: 8px; }
+  .mtabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; }
+  .mtabs button { padding: 11px 2px; font: 700 11px/1.2 var(--display); letter-spacing: .1em; text-transform: uppercase; }
+  .mtabs button + button { border-left: 0; }
+  .mpanel:not(.active) { display: none; }
+  .wrap:not([data-tab="code"]) > footer { display: none; }
+  .look { gap: 14px; }
+  .look.active { display: grid; }
+  .look .body-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .look .body-pick label:first-child { grid-column: 1 / -1; }
+  .look .body-pick select { width: 100%; }
+  .look .viewer-row { margin-top: 0; }
+  .look .note { margin: 0; }
+  .panel { padding: 14px; border-radius: 12px; }
+  /* Bigger touch targets, and 16px text so iOS doesn't zoom into a focused field. */
+  select, input[type=text], textarea { font-size: 16px; }
+  .stepper button { padding: 9px 13px; }
+  .stepper select { width: 84px; padding-block: 8px; font-size: 16px; }
+  .stepper select.wide { width: 150px; font-size: 15px; }
+  .part { padding: 2px 0; }
+  .target button { padding: 9px 12px; }
+  .code-row > button { flex: 1 1 auto; }
+}
 @media (prefers-reduced-motion: no-preference) { button, .sw { transition: border-color .12s, background-color .12s; } }
 </style>
 
@@ -154,7 +196,7 @@ footer { color: var(--muted); font-size: 13px; }
     </div>
   </header>
 
-  <section class="panel code" aria-labelledby="code-h">
+  <section class="panel code mpanel" data-tab="code" aria-labelledby="code-h">
     <div class="panel-head">
       <h2 id="code-h">Share code</h2>
       <span class="note" style="margin:0">Wardrobe → Share → paste into the box → Import → Apply</span>
@@ -174,7 +216,12 @@ footer { color: var(--muted); font-size: 13px; }
         <h2 id="view-h">Preview</h2>
         <span class="note" style="margin:0">Drag to turn · scroll or pinch to zoom</span>
       </div>
-      <div class="stage" id="stage"><div class="stage-msg" id="stage-msg">Loading 3D preview…</div></div>
+      <div class="stage" id="stage"><div class="stage-msg" id="stage-msg">Loading 3D preview…</div>
+        <button class="stage-btn" id="stage-copy">Copy code</button>
+        <button class="stage-btn" id="stage-size" aria-pressed="false">Bigger</button></div>
+      <nav class="mtabs" aria-label="Sections">
+        <button data-tab="parts">Parts</button><button data-tab="colours">Colours</button><button data-tab="look">Character</button><button data-tab="code">Code</button>
+      </nav>
       <div class="viewer-row">
         <div class="pickers">
           <div class="grp"><span class="lbl">Head</span>
@@ -192,7 +239,7 @@ footer { color: var(--muted); font-size: 13px; }
       <p class="note">Head, helmet, cloak, skin and hair are only for the preview. The share code carries armour parts and armour colours; set the helmet and cloak in-game on the Equip tab.</p>
     </section>
 
-    <section class="panel" aria-labelledby="parts-h">
+    <section class="panel mpanel" data-tab="parts" aria-labelledby="parts-h">
       <div class="panel-head">
         <h2 id="parts-h">Armour parts</h2>
         <label class="sync"><input type="checkbox" id="sync" checked> L+R sync</label>
@@ -200,7 +247,7 @@ footer { color: var(--muted); font-size: 13px; }
       <div class="parts" id="parts"></div>
     </section>
 
-    <section class="panel" aria-labelledby="col-h">
+    <section class="panel mpanel" data-tab="colours" aria-labelledby="col-h">
       <div class="panel-head"><h2 id="col-h">Colours</h2>
         <div class="target" role="group" aria-label="Colour which item">
           <button id="target-armour">Armour</button><button id="target-helm">Helmet</button><button id="target-cloak">Cloak</button>
@@ -212,7 +259,7 @@ footer { color: var(--muted); font-size: 13px; }
     </section>
   </div>
 
-  <section class="panel saved" aria-labelledby="saved-h">
+  <section class="panel saved mpanel" data-tab="code" aria-labelledby="saved-h">
     <div class="panel-head">
       <h2 id="saved-h">Saved outfits</h2>
       <div class="code-row">
@@ -221,6 +268,10 @@ footer { color: var(--muted); font-size: 13px; }
       </div>
     </div>
     <div class="saved-list" id="saved-list"></div>
+  </section>
+
+  <section class="panel look mpanel" data-tab="look" id="look" aria-labelledby="look-h">
+    <h2 id="look-h">Character</h2>
   </section>
 
   <footer>Saved outfits stay in this browser only. Parts marked <span class="tag custom">Auldwyn</span> come from the server's custom content.</footer>
@@ -784,8 +835,8 @@ footer { color: var(--muted); font-size: 13px; }
   $('copy').onclick = async () => {
     const text = makeCode(state);
     $('code').value = text;
-    try { await navigator.clipboard.writeText(text); status('Copied. Paste it into the Share tab in-game, then Import and Apply.', 'ok'); }
-    catch { $('code').select(); status('Your browser blocked copying. The code is selected, so press Ctrl+C.', ''); }
+    try { await navigator.clipboard.writeText(text); status('Copied. Paste it into the Share tab in-game, then Import and Apply.', 'ok'); return true; }
+    catch { $('code').select(); status('Your browser blocked copying. The code is selected, so press Ctrl+C.', ''); return false; }
   };
   $('revert').onclick = () => {
     if (!history.length) return;
@@ -823,6 +874,53 @@ footer { color: var(--muted); font-size: 13px; }
     renderSaved();
     status(`Saved “${name}”.`, 'ok');
   };
+
+  // ---------- phone layout ----------
+  // On narrow screens the character pickers move into the Character tab, and the tab bar under the
+  // pinned preview picks which panel shows.
+  (() => {
+    const mq = matchMedia('(max-width: 760px)');
+    const wrap = document.querySelector('.wrap');
+    const viewer = document.querySelector('.viewer');
+    const moving = [document.querySelector('.body-pick'), viewer.querySelector('.viewer-row'), viewer.querySelector('.viewer-row + .note')]
+      .map((n) => ({ n, parent: n.parentNode, next: n.nextSibling }));
+    const tabs = [...document.querySelectorAll('.mtabs button')];
+    let tab = store.get('aw.mtab', 'parts');
+    function show(t, scroll) {
+      tab = t;
+      store.set('aw.mtab', t);
+      wrap.dataset.tab = t;
+      tabs.forEach((b) => { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-current', String(b.dataset.tab === t)); });
+      document.querySelectorAll('.mpanel').forEach((p) => p.classList.toggle('active', p.dataset.tab === t));
+      if (scroll) {
+        // Start the new panel at its top, just under the pinned preview.
+        // (offsetTop of a stuck element is its stuck spot, so measure from the header instead.)
+        const pinned = document.querySelector('header').getBoundingClientRect().bottom + window.scrollY + 12;
+        if (window.scrollY > pinned) window.scrollTo({ top: pinned });
+      }
+    }
+    function layout() {
+      const look = $('look');
+      if (mq.matches) moving.forEach(({ n }) => look.append(n));
+      else moving.slice().reverse().forEach(({ n, parent, next }) => parent.insertBefore(n, next));
+    }
+    tabs.forEach((b) => { b.onclick = () => show(b.dataset.tab, true); });
+    mq.addEventListener('change', layout);
+    layout();
+    show(tab, false);
+    $('stage-size').onclick = () => {
+      const big = $('stage').classList.toggle('big');
+      $('stage-size').textContent = big ? 'Smaller' : 'Bigger';
+      $('stage-size').setAttribute('aria-pressed', String(big));
+    };
+    $('stage-copy').onclick = async () => {
+      if (!(await $('copy').onclick())) { show('code', true); $('code').select(); return; }
+      $('stage-copy').textContent = 'Copied';
+      clearTimeout($('stage-copy').t);
+      $('stage-copy').t = setTimeout(() => { $('stage-copy').textContent = 'Copy code'; }, 1500);
+    };
+    if (matchMedia('(hover: none)').matches) $('hover-info').textContent = 'Tap a swatch to pick it';
+  })();
 
   // ---------- start ----------
   const last = store.get('aw.current', null);
