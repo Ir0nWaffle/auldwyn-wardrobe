@@ -1,4 +1,12 @@
 {
   "_why": "Parts the tool never offers or ships, though they exist in Auldwyn's files. Keys are model slot names (chest = torso).",
-  "chest": [160, 161, 162, 166]
+  "chest": [
+    160,
+    161,
+    162,
+    166
+  ],
+  "pelvis": [
+    152
+  ]
 }
