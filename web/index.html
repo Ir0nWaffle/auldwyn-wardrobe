@@ -95,6 +95,12 @@ button:disabled:hover { border-color: var(--line-gold); color: var(--fg); }
 .viewer-row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-top: 12px; }
 .viewer-row .lbl { font: 700 11px/1.2 var(--display); color: var(--accent-deep); text-transform: uppercase; letter-spacing: .14em; }
 .viewer-row .grp { display: flex; align-items: center; gap: 8px; }
+.viewer-row .lbl { min-width: 52px; }
+.pickers { display: grid; gap: 8px; }
+.stepper select.wide { width: 150px; text-align: left; font: 600 13px var(--body); }
+.target { display: flex; gap: 0; }
+.target button { font: 700 11px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; padding: 7px 12px; }
+.target button + button { border-left: 0; }
 
 /* Parts */
 .parts { display: grid; gap: 4px; }
@@ -170,12 +176,20 @@ footer { color: var(--muted); font-size: 13px; }
       </div>
       <div class="stage" id="stage"><div class="stage-msg" id="stage-msg">Loading 3D preview…</div></div>
       <div class="viewer-row">
-        <div class="grp"><span class="lbl">Head</span>
-          <div class="stepper"><button id="head-prev" aria-label="Previous head">&lt;</button><select id="head" aria-label="Head"></select><button id="head-next" aria-label="Next head">&gt;</button></div>
+        <div class="pickers">
+          <div class="grp"><span class="lbl">Head</span>
+            <div class="stepper"><button id="head-prev" aria-label="Previous head">&lt;</button><select id="head" aria-label="Head"></select><button id="head-next" aria-label="Next head">&gt;</button></div>
+          </div>
+          <div class="grp"><span class="lbl">Helmet</span>
+            <div class="stepper"><button id="helm-prev" aria-label="Previous helmet">&lt;</button><select id="helm" aria-label="Helmet"></select><button id="helm-next" aria-label="Next helmet">&gt;</button></div>
+          </div>
+          <div class="grp"><span class="lbl">Cloak</span>
+            <div class="stepper"><button id="cloak-prev" aria-label="Previous cloak">&lt;</button><select id="cloak" class="wide" aria-label="Cloak"></select><button id="cloak-next" aria-label="Next cloak">&gt;</button></div>
+          </div>
         </div>
         <button id="reset-view">Reset view</button>
       </div>
-      <p class="note">Head, skin and hair are only for the preview. The share code carries armour parts and colours.</p>
+      <p class="note">Head, helmet, cloak, skin and hair are only for the preview. The share code carries armour parts and armour colours; set the helmet and cloak in-game on the Equip tab.</p>
     </section>
 
     <section class="panel" aria-labelledby="parts-h">
@@ -187,7 +201,11 @@ footer { color: var(--muted); font-size: 13px; }
     </section>
 
     <section class="panel" aria-labelledby="col-h">
-      <div class="panel-head"><h2 id="col-h">Colours</h2></div>
+      <div class="panel-head"><h2 id="col-h">Colours</h2>
+        <div class="target" role="group" aria-label="Colour which item">
+          <button id="target-armour">Armour</button><button id="target-helm">Helmet</button><button id="target-cloak">Cloak</button>
+        </div>
+      </div>
       <div class="slot-tabs" id="slot-tabs" role="tablist"></div>
       <div class="grid" id="grid" role="radiogroup" aria-label="Palette"></div>
       <div class="pick-info"><span id="hover-info">Hover a swatch to see its number</span><span id="sel-info"></span></div>
@@ -227,13 +245,28 @@ footer { color: var(--muted); font-size: 13px; }
     { id: 'Skin', pal: 'skin', pref: 'skin' }, { id: 'Hair', pal: 'hair', pref: 'hair' },
   ];
   // Preview-only choices (not part of the share code).
-  const prefs = Object.assign({ skin: 2, hair: 4, heads: {} }, store.get('aw.prefs', {}));
+  const prefs = Object.assign({ skin: 2, hair: 4, heads: {}, helm: 0, cloak: 0, target: 'armour' }, store.get('aw.prefs', {}));
   const savePrefs = () => store.set('aw.prefs', prefs);
-  const getColor = (i) => (COLOR_SLOTS[i].pref ? prefs[COLOR_SLOTS[i].pref] : state.c[i]);
+  // Helmet and cloak have their own six colours in-game; start them from the armour's.
+  const itemColors = (item) => (prefs[item + 'Colors'] ||= [...state.c]);
+  const previewOnly = (i) => !!COLOR_SLOTS[i].pref || prefs.target !== 'armour';
+  function getColor(i) {
+    if (COLOR_SLOTS[i].pref) return prefs[COLOR_SLOTS[i].pref];
+    return prefs.target === 'armour' ? state.c[i] : itemColors(prefs.target)[i];
+  }
   function setColor(i, v) {
-    const pref = COLOR_SLOTS[i].pref;
-    if (pref) { prefs[pref] = v; savePrefs(); renderColours(); viewer.update(); return; }
-    commit((s) => { s.c[i] = v; });
+    if (!previewOnly(i)) { commit((s) => { s.c[i] = v; }); return; }
+    if (COLOR_SLOTS[i].pref) prefs[COLOR_SLOTS[i].pref] = v;
+    else itemColors(prefs.target)[i] = v;
+    savePrefs(); renderColours(); viewer.update();
+  }
+  function renderTarget() {
+    ['armour', 'helm', 'cloak'].forEach((t) => {
+      const b = $('target-' + t);
+      b.className = prefs.target === t ? 'on' : '';
+      b.setAttribute('aria-pressed', String(prefs.target === t));
+      b.onclick = () => { prefs.target = t; savePrefs(); renderColours(); };
+    });
   }
   // Share-code index of each part, grouped the way the body reads top to bottom.
   const GROUPS = [
@@ -323,6 +356,8 @@ footer { color: var(--muted); font-size: 13px; }
     const shared = {
       pal: { value: null },
       rows: { value: new Array(10).fill(0) },
+      helmRows: { value: new Array(10).fill(0) },
+      cloakRows: { value: new Array(10).fill(0) },
       posScale: { value: 8192 },
       uvScale: { value: 4096 },
     };
@@ -434,10 +469,16 @@ footer { color: var(--muted); font-size: 13px; }
           const tex = await texture(tid);
           const mat = new T.ShaderMaterial({
             vertexShader: VERT, fragmentShader: FRAG, side: T.DoubleSide,
-            uniforms: { ...shared, plt: { value: tex }, hasTex: { value: tex ? 1 : 0 } },
+            uniforms: {
+              pal: shared.pal, posScale: shared.posScale, uvScale: shared.uvScale,
+              rows: slot === 'helm' ? shared.helmRows : slot === 'cloak' ? shared.cloakRows : shared.rows,
+              plt: { value: tex }, hasTex: { value: tex ? 1 : 0 },
+            },
           });
           const mesh = new T.Mesh(g, mat);
           mesh.frustumCulled = false;
+          // Helmets are one shared set, scaled per race and gender like in-game.
+          if (slot === 'helm') mesh.scale.setScalar(index.helmScale[pre.slice(0, 2)] || 1);
           out.push({ bone, mesh });
         }
         return out;
@@ -472,7 +513,11 @@ footer { color: var(--muted); font-size: 13px; }
     function wantedParts() {
       const pre = prefix();
       const hide = new Set((state.p[18] && index.robeHide[state.p[18]]) || []); // robe 0 = no robe
+      const cloak = itemFor('cloak', pre), helm = itemFor('helm', pre);
+      if (cloak) (index.cloakInfo[cloak]?.hide || []).forEach((h) => hide.add(h));
       const out = [];
+      if (cloak) out.push([pre, 'cloak', cloak]);
+      if (helm) out.push([pre, 'helm', helm]);
       D.slots.forEach((s, i) => {
         if (hide.has(s.id)) return;
         const num = s.id === 'chest' ? state.t : state.p[i];
@@ -486,29 +531,62 @@ footer { color: var(--muted); font-size: 13px; }
       const h = prefs.heads[pre];
       return list.includes(h) ? h : list[0];
     }
-    function renderHeadPicker() {
-      if (!index) return;
-      const pre = prefix(), list = index.heads[pre] || [], sel = $('head');
-      sel.replaceChildren(...list.map((n) => new Option(String(n), String(n))));
-      sel.value = String(headFor(pre));
+    // Helmet / cloak chosen for the preview; 0 = none, or the body has no such model.
+    function itemFor(kind, pre) {
+      const n = prefs[kind];
+      return n && (index[kind + 's'][pre] || []).includes(n) ? n : 0;
     }
-    function stepHead(d) {
-      const pre = prefix(), list = index.heads[pre] || [];
-      if (!list.length) return;
-      const i = list.indexOf(headFor(pre));
-      prefs.heads[pre] = list[(i + d + list.length) % list.length];
-      savePrefs(); update();
+    const PICKERS = {
+      head: {
+        list: (pre) => index.heads[pre] || [],
+        get: (pre) => headFor(pre),
+        set: (pre, n) => { prefs.heads[pre] = n; },
+        label: (n) => String(n),
+      },
+      helm: {
+        list: (pre) => [0, ...(index.helms[pre] || [])],
+        get: (pre) => itemFor('helm', pre),
+        set: (pre, n) => { prefs.helm = n; },
+        label: (n) => (n ? String(n) : 'None'),
+      },
+      cloak: {
+        list: (pre) => [0, ...(index.cloaks[pre] || [])],
+        get: (pre) => itemFor('cloak', pre),
+        set: (pre, n) => { prefs.cloak = n; },
+        label: (n) => (n ? `${n} · ${index.cloakInfo[n]?.name || ''}` : 'None'),
+      },
+    };
+    function renderPickers() {
+      const pre = prefix();
+      for (const [id, p] of Object.entries(PICKERS)) {
+        const sel = $(id);
+        sel.replaceChildren(...p.list(pre).map((n) => new Option(p.label(n), String(n))));
+        sel.value = String(p.get(pre));
+      }
     }
-    $('head-prev').onclick = () => stepHead(-1);
-    $('head-next').onclick = () => stepHead(1);
-    $('head').onchange = () => { prefs.heads[prefix()] = Number($('head').value); savePrefs(); update(); };
+    for (const [id, p] of Object.entries(PICKERS)) {
+      const pick = (n) => { p.set(prefix(), n); savePrefs(); update(); };
+      const step = (d) => {
+        if (!index) return;
+        const list = p.list(prefix());
+        if (!list.length) return;
+        const i = list.indexOf(p.get(prefix()));
+        pick(list[(i + d + list.length) % list.length]);
+      };
+      $(id + '-prev').onclick = () => step(-1);
+      $(id + '-next').onclick = () => step(1);
+      $(id).onchange = () => pick(Number($(id).value));
+    }
     $('reset-view').onclick = () => { if (controls) resetView(); };
 
     async function update() {
       if (!index) return;
-      renderHeadPicker();
-      const c = state.c;
-      shared.rows.value = [prefs.skin, prefs.hair, c[4], c[5], c[2], c[3], c[0], c[1], 0, 0];
+      renderPickers();
+      // Palette row per texture layer: skin, hair, metal 1/2, cloth 1/2, leather 1/2, tattoo 1/2.
+      const rowsFor = (c) => [prefs.skin, prefs.hair, c[4], c[5], c[2], c[3], c[0], c[1], 0, 0];
+      shared.rows.value = rowsFor(state.c);
+      shared.helmRows.value = rowsFor(itemColors('helm'));
+      shared.cloakRows.value = rowsFor(itemColors('cloak'));
       const ticket = ++wanted;
       const parts = wantedParts();
       const slow = setTimeout(() => msg('Loading parts…'), 250);
@@ -646,8 +724,8 @@ footer { color: var(--muted); font-size: 13px; }
       b.role = 'tab';
       b.id = 'ctab-' + i;
       b.setAttribute('aria-selected', String(i === activeColor));
-      b.className = (i === activeColor ? 'on' : '') + (cs.pref ? ' preview' : '');
-      if (cs.pref) b.title = 'Preview only';
+      b.className = (i === activeColor ? 'on' : '') + (previewOnly(i) ? ' preview' : '');
+      if (previewOnly(i)) b.title = 'Preview only';
       b.innerHTML = `<span>${cs.id}</span><span class="chip" style="background:${swatchCss(cs.pal, getColor(i))}"></span><span class="num">${getColor(i)}</span>`;
       b.onclick = () => { activeColor = i; store.set('aw.colorTab', i); renderColours(); };
       host.append(b);
@@ -677,9 +755,10 @@ footer { color: var(--muted); font-size: 13px; }
       b.classList.toggle('sel', on);
       b.setAttribute('aria-checked', String(on));
     });
-    $('sel-info').textContent = `${cs.id}: colour ${cur}${cs.pref ? ' (preview only)' : ''}`;
+    const what = cs.pref ? '' : { armour: '', helm: 'Helmet ', cloak: 'Cloak ' }[prefs.target];
+    $('sel-info').textContent = `${what}${cs.id}: colour ${cur}${previewOnly(activeColor) ? ' (preview only)' : ''}`;
   }
-  function renderColours() { renderTabs(); renderGrid(); }
+  function renderColours() { renderTarget(); renderTabs(); renderGrid(); }
 
   // ---------- code box ----------
   function render() {

@@ -34,7 +34,10 @@ ATTACH = {
     'forel': 'lforearm_g', 'forer': 'rforearm_g', 'handl': 'lhand_g', 'handr': 'rhand_g',
     'legl': 'lthigh_g', 'legr': 'rthigh_g', 'shinl': 'lshin_g', 'shinr': 'rshin_g',
     'footl': 'lfoot_g', 'footr': 'rfoot_g',
+    'helm': 'head_g', 'cloak': '',
 }
+# appearance.2da rows of the playable races, by model letter (half-elves use the human model).
+RACE_ROW = {'d': 0, 'e': 1, 'g': 2, 'a': 3, 'o': 5, 'h': 6}
 # Palette rows stacked in PLT layer order.
 PALETTES = ['pal_skin01', 'pal_hair01', 'pal_armor01', 'pal_armor02', 'pal_cloth01', 'pal_cloth01',
             'pal_leath01', 'pal_leath01', 'pal_tattoo01', 'pal_tattoo01']
@@ -134,14 +137,14 @@ def clamp16(v):
     return max(-32768, min(32767, int(round(v))))
 
 
-def build_body(res, tex, prefix, part_lists, heads):
+def build_body(res, tex, prefix, part_lists, heads, helms, cloaks):
     """Pack every mesh of one body. Returns (bytes, index)."""
 
     blob = bytearray()
     index = defaultdict(dict)
     failed = []
 
-    def add(slot, num, name):
+    def add(slot, num, name, texture=None):
         data = res.get(name, 'mdl')
         if not data:
             return
@@ -152,7 +155,7 @@ def build_body(res, tex, prefix, part_lists, heads):
             return
         out = []
         for m in meshes:
-            tid = tex.resolve(m['texture'])
+            tid = tex.resolve(texture or m['texture'])
             if tid is None:        # blank texture: deliberately invisible piece
                 continue
             # Vertices stay relative to the bone they hang from; the viewer places the bone.
@@ -185,6 +188,10 @@ def build_body(res, tex, prefix, part_lists, heads):
                 add(slot, num, f'p{prefix}_{slot}{num:03d}')
     for num in heads:
         add('head', num, f'p{prefix}_head{num:03d}')
+    for num in helms:
+        add('helm', num, f'helm_{num:03d}')
+    for num, (model, texture) in cloaks.items():
+        add('cloak', num, f'p{prefix}_cloak_{model:03d}', f'cloak_{texture:03d}')
     return bytes(blob), index, failed
 
 
@@ -246,15 +253,35 @@ def main():
         if hide:
             robe_hide[num] = hide
 
-    index = {'posScale': POS_SCALE, 'uvScale': UV_SCALE, 'bodies': {}, 'heads': {}, 'skeletons': {}, 'robeHide': robe_hide}
+    # Helmets: one shared set (helm_###), scaled per race and gender like the game does.
+    helms = sorted(int(n[5:]) for n in res.names('mdl') if re.match(r'^helm_\d{3}$', n))
+    _, app = nwnres.parse_2da(res.get('appearance', '2da'))
+    helm_scale = {}
+    for g in 'mf':
+        for race, row in RACE_ROW.items():
+            v = app[row].get('HELMET_SCALE_' + g.upper(), '1')
+            helm_scale[g + race] = float(v) if v != '****' else 1.0
+    # Cloaks: cloakmodel.2da picks a model shape and a texture; some hide the shoulder pads.
+    ccols, crows = nwnres.parse_2da(res.get('cloakmodel', '2da'))
+    cloaks, cloak_info = {}, {}
+    for num, r in crows.items():
+        if num and r.get('MODEL', '****') not in ('****', '0'):
+            cloaks[num] = (int(r['MODEL']), int(r['TEXTURE']))
+            hide = [side for side, col in (('shol', 'HIDESHOL'), ('shor', 'HIDESHOR')) if r.get(col) == '1']
+            cloak_info[num] = {'name': r.get('LABEL', '').replace('_', ' '), 'hide': hide}
+
+    index = {'posScale': POS_SCALE, 'uvScale': UV_SCALE, 'bodies': {}, 'heads': {}, 'skeletons': {}, 'robeHide': robe_hide,
+             'helms': {}, 'helmScale': helm_scale, 'cloaks': {}, 'cloakInfo': cloak_info}
     for prefix, parts in data['models'].items():
         if only and prefix not in only:
             continue
-        blob, idx, failed = build_body(res, tex, prefix, parts, sorted(heads[prefix]))
+        blob, idx, failed = build_body(res, tex, prefix, parts, sorted(heads[prefix]), helms, cloaks)
         write_gz(f'body_{prefix}.bin', blob)
         index['bodies'][prefix] = idx
         index['skeletons'][prefix] = build_skeleton(res, prefix)
         index['heads'][prefix] = sorted(int(k) for k in idx.get('head', {}))
+        index['helms'][prefix] = sorted(int(k) for k in idx.get('helm', {}))
+        index['cloaks'][prefix] = sorted(int(k) for k in idx.get('cloak', {}))
         print(prefix, f'{len(blob) / 1e6:.1f} MB raw', f'{len(idx.get("head", {}))} heads', f'{len(failed)} failed', failed[:2])
     index['textures'], index['texPacks'] = tex.pack()
     build_palettes(res)
